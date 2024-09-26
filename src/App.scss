@@ -1,5 +1,50 @@
+
 .App {
   text-align: center;
+  height: 95vh;
+  width: 95vw;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: black;
+  margin: auto;
+  margin-block: auto;
+
+  & > * {
+    height: 100%;
+    width: 100%;
+  }
+
+  & > button {
+    height: 20px;
+    width: 50px ;
+  }
 }
 
+.popup {
 
+  .popup-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 5px;
+
+    button {
+      font-size: 14px;
+      font-weight: 500;
+      background: darkorange;
+      border-radius: 5px;
+      width: fit-content;
+      padding: 5px 8px;
+      color: #fafafa;
+      cursor: pointer;
+    }
+
+    img {
+      width: 100%;
+      height: auto;
+      cursor: pointer;
+    }
+  }
+}
