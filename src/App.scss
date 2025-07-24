@@ -1,9 +1,8 @@
 
 .App {
   text-align: center;
-  height: 95vh;
-  width: 95vw;
-  padding: 10px;
+  height: 100vh;
+  width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,27 +17,38 @@
 
   & > button {
     height: 20px;
-    width: 50px ;
+    width: 50px;
   }
 }
 
-.popup {
-
-  .popup-content {
+.p {
+  .pc {
     display: flex;
     flex-direction: column;
     width: 100%;
     gap: 5px;
 
     button {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       background: darkorange;
       border-radius: 5px;
-      width: fit-content;
-      padding: 5px 8px;
+      padding: 4px;
       color: #fafafa;
       cursor: pointer;
+      width: 100%;
+      transition: all 0.3s ease-in-out;
+
+      &:last-of-type {
+        background: white;
+        color: darkorange;
+        border: 1px solid darkorange;
+
+        &:hover {
+          background: darkorange;
+          color: white;
+        }
+      }
     }
 
     img {

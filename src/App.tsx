@@ -1,70 +1,124 @@
+import {CircleMarker, MapContainer, Popup, TileLayer} from 'react-leaflet';
 import React, {useEffect, useState} from 'react';
-import {CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvent, useMapEvents} from 'react-leaflet';
-import {allMarkers, Mark, Marks} from "./Server";
-import {livelox} from "./Livelox";
-import {LatLngBounds} from "leaflet";
+import {Mark, Marks} from "./types";
 import 'leaflet/dist/leaflet.css';
 import './App.scss';
 
 
 export default function App() {
     const [center, setCenter] = useState<[number, number] | null>(null);
+    const [markers, setMarkers] = useState<JSX.Element[]>([]);
 
+    
     const open = (url: string) => window.open(url, '_blank');
 
-    const getMarkersWithinBounds = (m: Marks, bounds: LatLngBounds) => m.filter(x => bounds.contains([x.lat, x.lon]));
+    
+    const getMap = (map: string, source: "livelox" | "loggator") => {
+        if (source === 'livelox') return map;
 
+        return map.replace('d1d', 'https://d1die33kgxnq4e.cloudfront.net/uploads/map/overlay')
+            .replace('$t', 'tile_0_0.jpg');
+    }
+    
 
+    const openMap = (map: string, source: "livelox" | "loggator") => {
+        open(getMap(map, source));
+    }
+
+    
+    const getColor = (source: 'livelox' | 'loggator') => source === 'livelox' ? 'red' : 'darkorange';
+
+    
+    const copy = (x: string) => navigator.clipboard.writeText(x);
+
+    
     const Marker = (mark: Mark, source: 'livelox' | 'loggator') => {
-        const color = source === 'livelox' ? 'purple' : 'orange';
-        // const color = 'purple';
+        const map = mark.map;
 
-        const getMap = (map: string) => {
-            // d1d - https://d1die33kgxnq4e.cloudfront.net/uploads/map/overlay/
-            // $t - tile_0_0.jpg
-            // "map": "d1d/4f138275e5419b8788927a36/$t",
+        return <CircleMarker center={[mark.lat, mark.lon]} pathOptions={{color: getColor(source), fillOpacity: 0}} radius={3}>
+            <Popup className="p">
+                <div className="pc">
+                    <button onClick={() => openMap(map, source)}>Open Map</button>
+                    <button onClick={() => copy(`${mark.lat}, ${mark.lon}`)}>Copy Location</button>
 
-            if (source === 'livelox') return map;
-
-            return map.replace('d1d', 'https://d1die33kgxnq4e.cloudfront.net/uploads/map/overlay')
-                      .replace('$t', 'tile_0_0.jpg');
-        }
-
-        const map = getMap(mark.map);
-
-        return <CircleMarker center={[mark.lat, mark.lon]} pathOptions={{color: color, fillOpacity: 1}} radius={2.5}>
-
-            <Popup className="popup">
-                <div className="popup-content">
-                    <button onClick={() => open(map)}>Open Map</button>
-                    <img src={map} alt={mark.name} onClick={() => open(map)}/>
+                    <img src={getMap(map, source)} alt={mark.name} onClick={() => openMap(map, source)}/>
                 </div>
             </Popup>
         </CircleMarker>
     }
 
 
-    function MapsMarkers() {
-        const [bounds, setBounds] = useState<LatLngBounds | null>(null);
+    
+    const loadJson = async (url: string): Promise<Marks> => {
+        // {
+        //     "maps": [
+        //     {
+        //         "name": "ppDB3",
+        //         "map": "d1d/4f138275e5419b8788927a36/$t",
+        //         "lat": 54.55176,
+        //         "lon": -3.40602
+        //     },
+        //     {
+        //         "name": "ppleg5",
+        //         "map": "d1d/b2777d1347a39a94d12f2d4d/$t",
+        //         "lat": 54.55031,
+        //         "lon": -3.40538
+        //     },
+        //     {
+        //         "name": "ppDB2",
+        //         "map": "d1d/a4e1f7c184e59af1fe9831a7/$t",
+        //         "lat": 54.55167,
+        //         "lon": -3.41416
+        //     }
+        //   ]
+        // }
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) 
+            throw new Error(`HTTP error! status: ${response.status}`);
+        
+        
+        const data = await response.json();
+        
+        if (!data.maps || !Array.isArray(data.maps)) 
+            throw new Error("Invalid data format");
+        
+        return data.maps as Marks;
+    }
+    
+    // TODO: 1. Update the maps to include new ones, 2. Add "country" field to each map, 3. save it as .db file
+    const MapsMarkers = async () => {
+        const loggator_ = loadJson('/loggator.json');
+        const livelox_ = loadJson('/livelox.json');
+        
+        const [loggator, livelox] = await Promise.all([loggator_, livelox_]);
+        
+        const myMarkers_ = loggator.map(x => Marker(x, 'loggator'));
+        setMarkers(myMarkers_);
 
-        const map = useMapEvents({
-            moveend: () => {
-                const zoom = map.getZoom();
-                if (zoom < 6) return setBounds(null);
+        const chunkSize = 100;
+        let i = 0;
 
-                const bounds = map.getBounds();
-                setBounds(bounds);
+        const getChunk = (chunkNumber: number) => {
+            const start = chunkNumber * chunkSize;
+            const end = start + chunkSize;
+            return livelox.slice(start, end);
+        }
+
+        const interval = setInterval(() => {
+            const chunk = getChunk(i);
+
+            if (chunk.length === 0) {
+                clearInterval(interval);
             }
-        })
 
-        if (bounds === null) return null;
-
-        const myMarkers = getMarkersWithinBounds(allMarkers, bounds);
-        const liveLoxMarkers = getMarkersWithinBounds(livelox, bounds);
-
-        const myMarkers_ = myMarkers.map(x => Marker(x, 'loggator'));
-        const liveLoxMarkers_ = liveLoxMarkers.map(x => Marker(x, 'livelox'));
-        return myMarkers_.concat(liveLoxMarkers_);
+            else {
+                const liveLoxMarkers_ = chunk.map(x => Marker(x, 'livelox'));
+                setMarkers(current => [...current, ...liveLoxMarkers_]);
+            }
+            i++;
+        }, 100);
     }
 
 
@@ -91,22 +145,23 @@ export default function App() {
             return setCenter([d__.latitude, d__.longitude]);
 
         return setCenter([50, 15]);
-
     }
 
+    
     useEffect(() => {
+        MapsMarkers();
         getLocation();
     }, []);
 
+    
     if (center === null) return <span>Loading...</span>
 
-
+    
     return <div className="App">
-        <MapContainer center={center} zoom={9} scrollWheelZoom={false}>
+        <MapContainer center={center} zoom={6} scrollWheelZoom={false}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
 
-            {/*// @ts-ignore*/}
-            <MapsMarkers/>
+            {markers}
         </MapContainer>
     </div>
 }
